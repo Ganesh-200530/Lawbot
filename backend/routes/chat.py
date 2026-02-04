@@ -48,7 +48,7 @@ def upload_analyze():
                 text_content = file.read().decode('utf-8')
 
             # Analyze
-            guidance, lawyer_types = analyze_document_with_gemini(
+            guidance, lawyer_types, search_key = analyze_document_with_gemini(
                 doc_text=text_content,
                 user_question=question,
                 location=location_filter,
@@ -70,6 +70,7 @@ def upload_analyze():
             return jsonify({
                 "response": guidance,
                 "lawyer_suggestions": lawyer_types,
+                "search_key": search_key,
                 "pdf_url": pdf_url, 
                 "audio_url": f"/static/audio/{audio_file}" if audio_file else None
             })
@@ -105,7 +106,7 @@ def query_lawbot():
 
         # 2. Gemini Generation
         print("calling Gemini...")
-        explanation, lawyer_suggestions = generate_plain_language_explanation(
+        explanation, lawyer_suggestions, search_key = generate_plain_language_explanation(
             legal_context=context_text,
             user_question=question,
             language=language,
@@ -127,6 +128,7 @@ def query_lawbot():
         return jsonify({
             "response": explanation,
             "lawyer_suggestions": lawyer_suggestions,
+            "search_key": search_key,
             "pdf_url": pdf_url,
             "retrieved_cases": [d.get('case_name') for d in retrieved_docs],
             "audio_url": f"/static/audio/{audio_file}" if audio_file else None

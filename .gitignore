@@ -29,3 +29,5 @@ backend/instance/
 
 # OS
 Thumbs.db
+
+static/pdfs/*.pdf

@@ -2,7 +2,47 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Mic, Send, Loader2 } from 'lucide-react';
+import { Mic, Send, Loader2, Search, MapPin, ChevronDown, Globe } from 'lucide-react';
+
+const INDIAN_LOCATIONS: Record<string, string[]> = {
+  "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Nellore", "Tirupati", "Other"],
+  "Arunachal Pradesh": ["Itanagar", "Tawang", "Other"],
+  "Assam": ["Guwahati", "Silchar", "Dibrugarh", "Other"],
+  "Bihar": ["Patna", "Gaya", "Bhagalpur", "Muzaffarpur", "Other"],
+  "Chhattisgarh": ["Raipur", "Bhilai", "Bilaspur", "Other"],
+  "Goa": ["Panaji", "Margao", "Other"],
+  "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Other"],
+  "Haryana": ["Gurgaon", "Faridabad", "Panipat", "Other"],
+  "Himachal Pradesh": ["Shimla", "Manali", "Dharamshala", "Other"],
+  "Jharkhand": ["Ranchi", "Jamshedpur", "Dhanbad", "Other"],
+  "Karnataka": ["Bangalore", "Mysore", "Mangalore", "Hubli", "Other"],
+  "Kerala": ["Thiruvananthapuram", "Kochi", "Kozhikode", "Other"],
+  "Madhya Pradesh": ["Bhopal", "Indore", "Gwalior", "Jabalpur", "Other"],
+  "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik", "Other"],
+  "Manipur": ["Imphal", "Other"],
+  "Meghalaya": ["Shillong", "Other"],
+  "Mizoram": ["Aizawl", "Other"],
+  "Nagaland": ["Kohima", "Dimapur", "Other"],
+  "Odisha": ["Bhubaneswar", "Cuttack", "Rourkela", "Other"],
+  "Punjab": ["Ludhiana", "Amritsar", "Chandigarh", "Other"],
+  "Rajasthan": ["Jaipur", "Udaipur", "Jodhpur", "Kota", "Other"],
+  "Sikkim": ["Gangtok", "Other"],
+  "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Trichy", "Salem", "Other"],
+  "Telangana": ["Hyderabad", "Warangal", "Nizamabad", "Other"],
+  "Tripura": ["Agartala", "Other"],
+  "Uttar Pradesh": ["Lucknow", "Kanpur", "Varanasi", "Noida", "Agra", "Other"],
+  "Uttarakhand": ["Dehradun", "Haridwar", "Nainital", "Other"],
+  "West Bengal": ["Kolkata", "Darjeeling", "Siliguri", "Other"],
+  "Delhi": ["New Delhi", "North Delhi", "South Delhi", "Other"],
+  "Jammu & Kashmir": ["Srinagar", "Jammu", "Other"],
+  "Ladakh": ["Leh", "Kargil", "Other"],
+  "Andaman & Nicobar Islands": ["Port Blair", "Other"],
+  "Chandigarh": ["Chandigarh", "Other"],
+  "Dadra & Nagar Haveli and Daman & Diu": ["Daman", "Diu", "Silvassa", "Other"],
+  "Lakshadweep": ["Kavaratti", "Agatti", "Other"],
+  "Puducherry": ["Puducherry", "Karaikal", "Mahe", "Yanam", "Other"],
+  "Other": ["Other"]
+};
 
 const Home = () => {
     const { user } = useAuth();
@@ -11,6 +51,7 @@ const Home = () => {
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [lawyerTips, setLawyerTips] = useState<string | null>(null);
+    const [searchKey, setSearchKey] = useState<string | null>(null);
     const [relatedCases, setRelatedCases] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -24,6 +65,8 @@ const Home = () => {
             audio_response: false
         }
     });
+
+    const selectedState = watch('state');
     
     // File handler
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +81,7 @@ const Home = () => {
         setAudioUrl(null);
         setPdfUrl(null);
         setLawyerTips(null);
+        setSearchKey(null);
         setRelatedCases([]);
         
         try {
@@ -56,6 +100,7 @@ const Home = () => {
                 });
                 
                 setLawyerTips(res.data.lawyer_suggestions);
+                setSearchKey(res.data.search_key);
                 if (res.data.pdf_url) setPdfUrl(`http://localhost:5000${res.data.pdf_url}`);
 
             } else {
@@ -70,6 +115,7 @@ const Home = () => {
                     setRelatedCases(res.data.retrieved_cases);
                 }
                 setLawyerTips(res.data.lawyer_suggestions);
+                setSearchKey(res.data.search_key);
                 if (res.data.pdf_url) setPdfUrl(`http://localhost:5000${res.data.pdf_url}`);
             }
 
@@ -92,7 +138,7 @@ const Home = () => {
     };
 
     return (
-        <div className="pt-24 pb-12 px-4 max-w-4xl mx-auto min-h-screen flex flex-col">
+        <div className="pt-24 pb-12 px-6 max-w-7xl mx-auto min-h-screen flex flex-col">
              {/* Header Section */}
             <div className="mb-8 text-center sm:text-left">
                 <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 mb-2">
@@ -134,22 +180,30 @@ const Home = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         
                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300">Language</label>
-                            <select 
-                                {...register('language')}
-                                className="input-field py-2.5 appearance-none bg-black/40" 
-                            >
-                                <option value="English">English</option>
-                                <option value="Hindi">Hindi</option>
-                                <option value="Tamil">Tamil</option>
-                                <option value="Telugu">Telugu</option>
-                                <option value="Kannada">Kannada</option>
-                                <option value="Malayalam">Malayalam</option>
-                                <option value="Marathi">Marathi</option>
-                                <option value="Bengali">Bengali</option>
-                                <option value="Gujarati">Gujarati</option>
-                                <option value="Urdu">Urdu</option>
-                            </select>
+                            <label className="block text-sm font-medium text-blue-300 flex items-center gap-2">
+                                <Globe className="w-4 h-4" />
+                                Language
+                            </label>
+                            <div className="relative group">
+                                <select 
+                                    {...register('language')}
+                                    className="w-full bg-blue-900/20 border border-blue-500/30 rounded-xl px-4 py-3 appearance-none text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all cursor-pointer hover:bg-blue-900/30 text-base font-medium shadow-lg shadow-black/20" 
+                                >
+                                    <option value="English" className="bg-slate-900 text-white">English</option>
+                                    <option value="Hindi" className="bg-slate-900 text-white">Hindi</option>
+                                    <option value="Tamil" className="bg-slate-900 text-white">Tamil</option>
+                                    <option value="Telugu" className="bg-slate-900 text-white">Telugu</option>
+                                    <option value="Kannada" className="bg-slate-900 text-white">Kannada</option>
+                                    <option value="Malayalam" className="bg-slate-900 text-white">Malayalam</option>
+                                    <option value="Marathi" className="bg-slate-900 text-white">Marathi</option>
+                                    <option value="Bengali" className="bg-slate-900 text-white">Bengali</option>
+                                    <option value="Gujarati" className="bg-slate-900 text-white">Gujarati</option>
+                                    <option value="Urdu" className="bg-slate-900 text-white">Urdu</option>
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400 group-hover:text-cyan-300 transition-colors">
+                                    <ChevronDown className="w-5 h-5 stroke-[3]" />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Document Upload */}
@@ -180,26 +234,63 @@ const Home = () => {
                     {/* Location Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300">Country*</label>
-                             <select {...register('country')} className="input-field py-2.5 appearance-none">
-                                <option value="India">India</option>
-                             </select>
+                            <label className="block text-sm font-medium text-blue-300 flex items-center gap-2">
+                                <MapPin className="w-4 h-4" />
+                                Country*
+                            </label>
+                            <div className="relative group">
+                                <select 
+                                    {...register('country')} 
+                                    className="w-full bg-blue-900/20 border border-blue-500/30 rounded-xl px-4 py-3 appearance-none text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all cursor-pointer hover:bg-blue-900/30 text-base font-medium shadow-lg shadow-black/20"
+                                >
+                                    <option value="India" className="bg-slate-900 text-white">India</option>
+                                    <option value="Other" className="bg-slate-900 text-white">Other</option>
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400 group-hover:text-cyan-300 transition-colors">
+                                    <ChevronDown className="w-5 h-5 stroke-[3]" />
+                                </div>
+                            </div>
                         </div>
+
                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300">State/Province</label>
-                             <input 
-                                {...register('state')}
-                                className="input-field py-2.5" 
-                                placeholder="e.g. Karnataka"
-                             />
+                            <label className="block text-sm font-medium text-blue-300">State/Province</label>
+                            <div className="relative group">
+                                <select 
+                                   {...register('state')}
+                                   onChange={(e) => {
+                                       setValue('state', e.target.value);
+                                       setValue('city', ''); // Reset city on state change
+                                   }}
+                                   className="w-full bg-blue-900/20 border border-blue-500/30 rounded-xl px-4 py-3 appearance-none text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all cursor-pointer hover:bg-blue-900/30 text-base font-medium shadow-lg shadow-black/20"
+                                >
+                                   <option value="" className="bg-slate-900 text-gray-500">Select State</option>
+                                   {Object.keys(INDIAN_LOCATIONS).sort().map(state => (
+                                       <option key={state} value={state} className="bg-slate-900 text-white">{state}</option>
+                                   ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400 group-hover:text-cyan-300 transition-colors">
+                                    <ChevronDown className="w-5 h-5 stroke-[3]" />
+                                </div>
+                            </div>
                         </div>
+
                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300">City</label>
-                             <input 
-                                {...register('city')}
-                                className="input-field py-2.5" 
-                                placeholder="e.g. Bangalore"
-                             />
+                            <label className="block text-sm font-medium text-blue-300">City</label>
+                             <div className="relative group">
+                                <select 
+                                   {...register('city')}
+                                   disabled={!selectedState}
+                                   className="w-full bg-blue-900/20 border border-blue-500/30 rounded-xl px-4 py-3 appearance-none text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all cursor-pointer hover:bg-blue-900/30 text-base font-medium shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                   <option value="" className="bg-slate-900 text-gray-500">Select City</option>
+                                   {selectedState && INDIAN_LOCATIONS[selectedState]?.map(city => (
+                                       <option key={city} value={city} className="bg-slate-900 text-white">{city}</option>
+                                   ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400 group-hover:text-cyan-300 transition-colors">
+                                    <ChevronDown className="w-5 h-5 stroke-[3]" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -226,6 +317,14 @@ const Home = () => {
             </div>
 
             {/* Results Section */}
+            {loading && !response && (
+                <div className="glass-panel p-12 text-center animate-pulse">
+                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white">Analyzing your case...</h3>
+                    <p className="text-gray-400 mt-2">Consulting legal database & generating guidance...</p>
+                </div>
+            )}
+
             {response && (
                 <div className="glass-panel p-8 space-y-6 animate-fade-in-up">
                     <div className="flex justify-between items-start">
@@ -240,14 +339,41 @@ const Home = () => {
                     </div>
 
                     {lawyerTips && (
-                         <div className="mt-8 p-6 bg-blue-900/20 border border-blue-500/30 rounded-xl relative overflow-hidden">
+                         <div className="mt-8 p-6 bg-gradient-to-br from-blue-900/40 to-slate-900/40 border border-blue-500/30 rounded-xl relative overflow-hidden shadow-xl">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
-                            <h3 className="text-lg font-semibold text-blue-300 mb-4 flex items-center gap-2">
-                                <span className="text-xl">⚖️</span> AI Recommended Legal Experts
+                            
+                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <span className="text-2xl">⚖️</span> 
+                                Recommended Legal Action
                             </h3>
-                            <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">
+                            
+                            <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed mb-8">
                                 {lawyerTips}
                             </div>
+
+                            {searchKey && (
+                                <div className="flex flex-col sm:flex-row gap-4 mt-6 pt-6 border-t border-white/10">
+                                    <a 
+                                        href={`https://www.google.com/search?q=${encodeURIComponent(searchKey)}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-gray-100 text-black rounded-lg font-medium transition-colors shadow-lg shadow-white/5"
+                                    >
+                                        <div className="bg-gradient-to-r from-blue-500 via-red-500 to-yellow-500 w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-white font-bold">G</div>
+                                        Search Google
+                                    </a>
+                                    
+                                    <a 
+                                        href={`https://www.google.com/maps/search/${encodeURIComponent(searchKey)}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20"
+                                    >
+                                        <MapPin className="w-4 h-4" />
+                                        Find Nearby Lawyers
+                                    </a>
+                                </div>
+                            )}
                          </div>
                     )}
                     

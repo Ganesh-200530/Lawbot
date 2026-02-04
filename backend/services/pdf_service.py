@@ -25,16 +25,6 @@ def generate_legal_pdf(content, lawyer_info, filename=None):
     story.append(Paragraph("LAWBOT - Legal Guidance Report", title_style))
     story.append(Spacer(1, 12))
 
-    # Disclaimer
-    disclaimer_style = ParagraphStyle(
-        'Disclaimer',
-        parent=styles['Normal'],
-        textColor=colors.red,
-        fontSize=8
-    )
-    story.append(Paragraph("DISCLAIMER: This document is AI-generated for informational purposes only and does not constitute professional legal advice. Consult a qualified lawyer.", disclaimer_style))
-    story.append(Spacer(1, 24))
-
     # Guidance Section
     header_style = styles['Heading2']
     story.append(Paragraph("Case Analysis & Guidance", header_style))

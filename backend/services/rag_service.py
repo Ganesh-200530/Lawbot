@@ -11,8 +11,18 @@ class RAGService:
         self.questions = []
         self.vectorizer = None
         self.tfidf_matrix = None
+        self._initialized = False # Lazy loading flag
+
+    def _initialize_service(self):
+        """Loads data and builds index only when needed."""
+        if self._initialized:
+            return
+        
+        print("Initializing RAG Service (Lazy Load)...")
         self._load_data()
         self._build_index()
+        self._initialized = True
+        print("RAG Service Ready.")
 
     def _load_data(self):
         if os.path.exists(self.data_path):
@@ -36,6 +46,9 @@ class RAGService:
         print("Index Built.")
 
     def search(self, query, top_k=3):
+        # Ensure initialization before search
+        self._initialize_service()
+
         if not self.vectorizer or not self.search_index:
             return []
 

@@ -47,22 +47,39 @@ def generate_plain_language_explanation(legal_context, user_question, language="
     [Your response here. Structure with headings like "**Legal Rights**", "**Steps to Take**", "**Relevant Acts**".]
 
     Section 2: Recommended Lawyers
-    [Your specific lawyer search suggestions here]
-    
-    Disclaimer: Start guidance with a clear statement that this is information, not legal advice.
+    [Brief text search suggestions]
+
+    Section 3: Search Key
+    [A single optimized search query string for Google, e.g. "Property Dispute Lawyer in Chennai"]
     """
 
     try:
         response = model.generate_content(prompt)
         text = response.text
         
-        parts = text.split("Section 2:")
-        guidance = parts[0].replace("Section 1:", "").strip()
-        lawyers = parts[1].strip() if len(parts) > 1 else "Consult a civil or criminal lawyer based on the case."
-        
-        return guidance, lawyers
+        # Parsing sections
+        guidance = "Analysis not available."
+        lawyers = "General Legal Counsel"
+        search_key = f"Lawyers in {user_location}"
+
+        try:
+             parts = text.split("Section 2:")
+             guidance = parts[0].replace("Section 1:", "").strip()
+             
+             rest = parts[1]
+             if "Section 3:" in rest:
+                 lawyer_parts = rest.split("Section 3:")
+                 lawyers = lawyer_parts[0].strip()
+                 search_key = lawyer_parts[1].strip()
+             else:
+                 lawyers = rest.strip()
+        except:
+            guidance = text
+
+        return guidance, lawyers, search_key
+
     except Exception as e:
-        return f"Error generating response: {str(e)}", "N/A"
+        return f"Error generating response: {str(e)}", "N/A", "Lawyers in India"
 
 def analyze_document_with_gemini(doc_text, user_question, location="India", language="English"):
     if not API_KEY:
@@ -96,20 +113,35 @@ def analyze_document_with_gemini(doc_text, user_question, location="India", lang
 
     Section 2: Recommended Lawyer Types (Search Suggestions)
     [Your suggestions here]
+
+    Section 3: Search Key
+    [A single optimized search query string for Google, e.g. "Divorce Lawyer in Bangalore High Court"]
     """
     
     try:
         response = model.generate_content(prompt)
         text = response.text
         
-        # Naive split for the PDF generation (Production would use structure)
-        # We assume Gemini follows the Section headers roughly
-        parts = text.split("Section 2:")
-        guidance = parts[0].replace("Section 1:", "").strip()
-        lawyers = parts[1].strip() if len(parts) > 1 else "Consult a general practitioner."
+        guidance = "Analysis not available."
+        lawyers = "General Legal Counsel"
+        search_key = f"Lawyers in {location}"
+
+        try:
+            parts = text.split("Section 2:")
+            guidance = parts[0].replace("Section 1:", "").strip()
+            
+            rest = parts[1]
+            if "Section 3:" in rest:
+                 lawyer_parts = rest.split("Section 3:")
+                 lawyers = lawyer_parts[0].strip()
+                 search_key = lawyer_parts[1].strip()
+            else:
+                 lawyers = rest.strip()
+        except:
+             guidance = text
         
-        return guidance, lawyers
+        return guidance, lawyers, search_key
         
     except Exception as e:
-        return f"Error: {str(e)}", "N/A"
+        return f"Error: {str(e)}", "N/A", "Lawyers in India"
 

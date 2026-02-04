@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, MapPin, Grid2X2, Scale, Clock, Shield } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Grid2X2, Scale, Clock, Shield, FileText, ArrowLeft } from 'lucide-react';
 
 const Profile = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     
     // Mock History for MVP visualization
     const activityHistory = [
@@ -16,6 +18,14 @@ const Profile = () => {
 
     return (
         <div className="pt-24 pb-12 px-4 max-w-5xl mx-auto min-h-screen">
+            <button 
+                onClick={() => navigate('/')} 
+                className="mb-6 flex items-center gap-2 text-slate-400 hover:text-blue-400 transition-colors bg-white/5 p-2 rounded-lg backdrop-blur-sm border border-white/10"
+            >
+                <ArrowLeft className="w-5 h-5" />
+                <span>Back to Chat</span>
+            </button>
+
             {/* Header / Cover */}
             <div className="relative mb-12">
                 <div className="h-48 bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl overflow-hidden relative">
@@ -79,9 +89,9 @@ const Profile = () => {
                                 <span className="text-xs text-gray-400">Queries</span>
                             </div>
                             <div className="bg-blue-900/20 p-3 rounded-lg text-center">
-                                <Shield className="w-6 h-6 text-blue-400 mx-auto mb-1" />
-                                <span className="block text-2xl font-bold text-white">Basic</span>
-                                <span className="text-xs text-gray-400">Plan</span>
+                                <FileText className="w-6 h-6 text-blue-400 mx-auto mb-1" />
+                                <span className="block text-2xl font-bold text-white">3</span>
+                                <span className="text-xs text-gray-400">Documents</span>
                             </div>
                         </div>
                     </div>
