@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Mic, Send, Loader2, Search, MapPin, ChevronDown, Globe } from 'lucide-react';
+import { Mic, Send, Loader2, MapPin, ChevronDown, Globe } from 'lucide-react';
 
 const INDIAN_LOCATIONS: Record<string, string[]> = {
   "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Nellore", "Tirupati", "Other"],
@@ -52,7 +52,7 @@ const Home = () => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [lawyerTips, setLawyerTips] = useState<string | null>(null);
     const [searchKey, setSearchKey] = useState<string | null>(null);
-    const [relatedCases, setRelatedCases] = useState<string[]>([]);
+    // const [relatedCases, setRelatedCases] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const { register, handleSubmit, setValue, watch } = useForm({
@@ -82,7 +82,7 @@ const Home = () => {
         setPdfUrl(null);
         setLawyerTips(null);
         setSearchKey(null);
-        setRelatedCases([]);
+        // setRelatedCases([]);
         
         try {
             let res;
@@ -111,9 +111,9 @@ const Home = () => {
                     location: data.state
                 });
                 
-                if (res.data.retrieved_cases) {
-                    setRelatedCases(res.data.retrieved_cases);
-                }
+                // if (res.data.retrieved_cases) {
+                //     setRelatedCases(res.data.retrieved_cases);
+                // }
                 setLawyerTips(res.data.lawyer_suggestions);
                 setSearchKey(res.data.search_key);
                 if (res.data.pdf_url) setPdfUrl(`http://localhost:5000${res.data.pdf_url}`);
@@ -133,47 +133,77 @@ const Home = () => {
     };
 
     const handleMicClick = () => {
-        // Placeholder for real speech-to-text integration
-        alert("Speech to text feature integration required.");
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Your browser does not support Speech Recognition. Please try Chrome or Edge.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = watch('language') === 'Hindi' ? 'hi-IN' 
+            : watch('language') === 'Tamil' ? 'ta-IN' 
+            : watch('language') === 'Telugu' ? 'te-IN' 
+            : 'en-IN'; // Add more mappings as needed
+            
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            alert("Listening... Speak now!");
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            const currentQ = watch('question') || '';
+            setValue('question', currentQ + (currentQ ? ' ' : '') + transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event.error);
+            alert("Error recognizing speech. Please try again.");
+        };
+
+        recognition.start();
     };
 
     return (
         <div className="pt-24 pb-12 px-6 max-w-7xl mx-auto min-h-screen flex flex-col">
              {/* Header Section */}
-            <div className="mb-8 text-center sm:text-left">
-                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 mb-2">
-                    Law Bot MVP
-                </h1>
-                <p className="text-gray-400 text-lg">
-                    Speak or type your issue. We detect the language, infer the jurisdiction, and simplify the law for you.
+            <div className="mb-10 text-center sm:text-left mt-8">
+                <p className="text-slate-400 text-lg sm:text-xl max-w-2xl font-medium leading-relaxed">
+                    Speak or type your issue. We auto-detect your language, find relevant Indian case laws, and simplify your legal options.
                 </p>
             </div>
 
             {/* Main Input Card */}
-            <div className="glass-panel p-6 sm:p-8 mb-8 relative overflow-hidden">
-                {/* Decorative glow */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+            <div className="glass-panel p-6 sm:p-10 mb-10 relative overflow-hidden backdrop-blur-2xl border-slate-700/50 bg-slate-900/70">
+                {/* Decorative glows */}
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none mix-blend-screen"></div>
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-600/10 rounded-full blur-[80px] -ml-40 -mb-40 pointer-events-none mix-blend-screen"></div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-10">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 relative z-10">
                     
                     {/* Issue Description */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-300">Issue description</label>
-                        <div className="relative">
+                    <div className="space-y-3">
+                        <label className="text-sm font-bold text-slate-300 tracking-wide uppercase flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Explain Your Situation
+                        </label>
+                        <div className="relative group">
                             <textarea 
                                 {...register('question', { required: true })}
-                                className="input-field min-h-[160px] resize-none pr-12 text-lg leading-relaxed"
-                                placeholder="Explain what happened, who was involved, dates, and any deadlines..."
+                                className="input-field min-h-[180px] resize-none pr-16 text-lg leading-relaxed bg-slate-950/50 backdrop-blur-md focus:bg-slate-900/80 transition-all shadow-inner"
+                                placeholder="What happened? Include dates, who was involved, and any deadlines you're facing..."
                             ></textarea>
                             <button 
                                 type="button"
                                 onClick={handleMicClick}
-                                className="absolute bottom-4 right-4 p-2 bg-blue-600 rounded-full hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/30 group"
+                                className="absolute bottom-5 right-5 p-3.5 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-full hover:from-indigo-400 hover:to-blue-500 transition-all duration-300 shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] group/mic active:scale-95"
                             >
-                                <Mic className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
+                                <Mic className="w-5 h-5 text-white group-hover/mic:scale-110 transition-transform" />
                             </button>
                         </div>
-                        <p className="text-xs text-gray-500">Hold the mic button and speak slowly. Works best in Chromium-based browsers.</p>
+                        <p className="text-xs text-slate-500 font-medium ml-1">You can type naturally or use the mic button to speak your issue directly.</p>
                     </div>
 
                     {/* Filters Grid */}
@@ -217,15 +247,21 @@ const Home = () => {
                              />
                         </div>
 
-                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300">Audio Response?</label>
+                        <div className="space-y-3">
+                             <label className="text-sm font-bold text-slate-300 tracking-wide uppercase flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                Audio Response?
+                             </label>
                              <div className="flex items-center gap-3 pt-2">
                                 <input 
                                     type="checkbox" 
+                                    id="audio_toggle"
                                     {...register('audio_response')}
-                                    className="w-5 h-5 rounded border-gray-600 bg-black/20 text-blue-600 focus:ring-blue-500"
+                                    className="w-5 h-5 rounded border-slate-600 bg-slate-900/50 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                 />
-                                <span className="text-sm text-gray-400">Enable TTS</span>
+                                <label htmlFor="audio_toggle" className="text-sm font-medium text-slate-400 cursor-pointer select-none hover:text-slate-300 transition-colors">
+                                    Enable Audio Playback (TTS)
+                                </label>
                              </div>
                         </div>
 

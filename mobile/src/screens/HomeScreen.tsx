@@ -26,9 +26,9 @@ import {
     Globe,
     ChevronDown,
     X
-} from 'lucide-react-native/dist/esm/lucide-react-native';
+} from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -134,7 +134,7 @@ export default function HomeScreen({ navigation }: any) {
             setLoading(true);
             const downloadRes = await FileSystem.downloadAsync(downloadUrl, fileUri);
             
-            if (Sharing.isAvailableAsync()) {
+            if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(downloadRes.uri);
             } else {
                 Alert.alert('Download Complete', `File saved to ${downloadRes.uri}`);
@@ -176,11 +176,8 @@ export default function HomeScreen({ navigation }: any) {
                 formData.append('location', selectedState || 'India');
                 formData.append('audio_response', audioResponse.toString());
 
-                response = await api.post('/api/upload_and_analyze', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+
+                response = await api.post('/api/upload_and_analyze', formData);
             } else {
                 // JSON query
                 response = await api.post('/api/query', {

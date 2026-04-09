@@ -19,10 +19,15 @@ class RAGService:
             return
         
         print("Initializing RAG Service (Lazy Load)...")
-        self._load_data()
-        self._build_index()
-        self._initialized = True
-        print("RAG Service Ready.")
+        try:
+            self._load_data()
+            self._build_index()
+            self._initialized = True
+            print("RAG Service Ready.")
+        except Exception as e:
+            print(f"Error initializing RAG Service: {e}")
+            # Ensure we don't crash the app if RAG fails, just log and continue
+            self._initialized = False
 
     def _load_data(self):
         if os.path.exists(self.data_path):

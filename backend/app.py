@@ -22,8 +22,9 @@ def create_app():
     # Initialize Extensions
     db.init_app(app)
     login_manager.init_app(app)
-    # CORS(app) # Allow frontend to call API
-    CORS(app, resources={r"/*": {"origins": ["http://localhost:5173", "http://localhost:5174"]}}, supports_credentials=True)
+    # Flexible CORS for both web and mobile
+    import re
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": re.compile(r".*")}})
 
     # Login Manager Setup
     @login_manager.user_loader
