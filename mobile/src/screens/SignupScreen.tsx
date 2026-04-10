@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { User, Mail, Lock, UserPlus } from 'lucide-react-native/dist/esm/lucide-react-native';
+import { User, Mail, Lock, UserPlus } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 
 export default function SignupScreen({ navigation }: any) {

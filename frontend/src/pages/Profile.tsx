@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, MapPin, Grid2X2, Scale, Clock, Shield, FileText, ArrowLeft } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Grid2X2, Scale, Clock, FileText, ArrowLeft } from 'lucide-react';
 
 const Profile = () => {
     const { user } = useAuth();

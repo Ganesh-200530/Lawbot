@@ -19,7 +19,7 @@ import {
     Bell, 
     Shield,
     ArrowLeft
-} from 'lucide-react-native/dist/esm/lucide-react-native';
+} from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProfileScreen({ navigation }: any) {

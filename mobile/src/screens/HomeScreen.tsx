@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
+import React, { useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
     TouchableOpacity, 
     StyleSheet, 
     ScrollView, 
@@ -14,8 +14,9 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { 
-    Scale, 
+import { Audio } from 'expo-av';
+import {
+    Scale,
     User, 
     Upload, 
     FileText, 
@@ -25,7 +26,8 @@ import {
     MapPin, 
     Globe,
     ChevronDown,
-    X
+    X,
+    Send
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -82,6 +84,11 @@ interface AnalysisResult {
     audio_url: string | null;
 }
 
+interface ChatMessage {
+    role: 'user' | 'model';
+    content: string;
+}
+
 export default function HomeScreen({ navigation }: any) {
     const { user } = useAuth();
     const [question, setQuestion] = useState('');
@@ -93,6 +100,35 @@ export default function HomeScreen({ navigation }: any) {
     
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<AnalysisResult | null>(null);
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [followUpText, setFollowUpText] = useState('');
+    const [isChatting, setIsChatting] = useState(false);
+
+    const [sound, setSound] = useState<Audio.Sound>();
+    const [micTarget, setMicTarget] = useState<'question' | 'followup' | null>(null);
+
+    const startRecording = async (target: 'question' | 'followup') => {
+        Alert.alert('Voice Feature', 'Voice input on mobile requires a custom dev build. Please type your query for now.');
+    };
+
+    async function playAudio(url: string) {
+        try {
+            let downloadUrl = url;
+            if (url.startsWith('/')) {
+                downloadUrl = `${api.defaults.baseURL}${url}`;
+            }
+            const { sound: newSound } = await Audio.Sound.createAsync({ uri: downloadUrl });
+            setSound(newSound);
+            await newSound.playAsync();
+        } catch (error) {
+            console.error("Audio error:", error);
+            Alert.alert('Error', 'Could not play audio');
+        }
+    }
+
+    useEffect(() => {
+        return sound ? () => { sound.unloadAsync(); } : undefined;
+    }, [sound]);
 
     const pickDocument = async () => {
         try {
@@ -196,11 +232,42 @@ export default function HomeScreen({ navigation }: any) {
                 audio_url: response.data.audio_url
             });
 
+            setChatHistory([
+                { role: 'user', content: question || 'Uploaded Document' },
+                { role: 'model', content: response.data.response || JSON.stringify(response.data) }
+            ]);
+
         } catch (error) {
             console.error(error);
             Alert.alert('Error', 'Something went wrong. Please try again.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleFollowUpSubmit = async () => {
+        if (!followUpText.trim() || isChatting) return;
+
+        const newUserMsg: ChatMessage = { role: 'user', content: followUpText };
+        const currentHistory = [...chatHistory, newUserMsg];
+        setChatHistory(currentHistory);
+        setFollowUpText('');
+        setIsChatting(true);
+
+        try {
+            const res = await api.post('/api/followup', {
+                history: currentHistory,
+                question: newUserMsg.content,
+                language: language
+            });
+
+            setChatHistory([...currentHistory, { role: 'model', content: res.data.response }]);
+        } catch (err) {
+            console.error(err);
+            Alert.alert('Error', 'Failed to get follow-up response');
+            setChatHistory(currentHistory.slice(0, -1));
+        } finally {
+            setIsChatting(false);
         }
     };
 
@@ -312,7 +379,7 @@ export default function HomeScreen({ navigation }: any) {
                             onChangeText={setQuestion}
                             textAlignVertical="top"
                         />
-                        <TouchableOpacity style={styles.micButton} onPress={() => Alert.alert('Voice', 'Voice input coming soon!')}>
+                        <TouchableOpacity style={styles.micButton} onPress={() => startRecording('question')}>
                             <Mic size={20} color="white" />
                         </TouchableOpacity>
                     </View>
@@ -361,7 +428,7 @@ export default function HomeScreen({ navigation }: any) {
                             <Text style={styles.resultTitle}>Legal Analysis</Text>
                             <View style={styles.resultActions}>
                                 {result.audio_url && (
-                                    <TouchableOpacity style={styles.iconButton}>
+                                      <TouchableOpacity style={styles.iconButton} onPress={() => playAudio(result.audio_url!)}>
                                         <Volume2 size={20} color="#3b82f6" />
                                     </TouchableOpacity>
                                 )}
@@ -387,6 +454,53 @@ export default function HomeScreen({ navigation }: any) {
                             </>
                         )}
                     </BlurView>
+                )}
+
+                {/* Follow-up Interactive Chat */}
+                {chatHistory.length > 0 && (
+                    <View style={styles.chatSection}>
+                        <Text style={styles.chatHeader}>Continue the Conversation</Text>
+                        
+                        <View style={styles.chatContainer}>
+                            {chatHistory.slice(2).map((msg, index) => (
+                                <View key={index} style={msg.role === 'user' ? styles.userMessageRow : styles.botMessageRow}>
+                                    <View style={msg.role === 'user' ? styles.userMessageContainer : styles.botMessageContainer}>
+                                        <Text style={styles.chatText}>{msg.content}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                            {isChatting && (
+                                <View style={styles.botMessageRow}>
+                                    <View style={styles.botMessageContainer}>
+                                        <Text style={styles.chatText}>Lawbot is typing...</Text>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.chatInputContainer}>
+                            <TextInput
+                                style={styles.chatInput}
+                                value={followUpText}
+                                onChangeText={setFollowUpText}
+                                placeholder="Ask a follow-up question..."
+                                placeholderTextColor="#64748b"
+                                editable={!isChatting}
+                            />
+                            <TouchableOpacity                                  style={styles.chatMicButton}
+                                  onPress={() => startRecording('followup')}
+                                  disabled={isChatting}
+                              >
+                                  <Mic size={20} color="#94a3b8" />
+                              </TouchableOpacity>
+                              <TouchableOpacity                                style={[styles.chatSubmitButton, (!followUpText.trim() || isChatting) && { opacity: 0.5 }]}
+                                onPress={handleFollowUpSubmit}
+                                disabled={!followUpText.trim() || isChatting}
+                            >
+                                <Send size={20} color="white" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 )}
                 
                 <View style={{ height: 100 }} />
@@ -597,5 +711,88 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         marginVertical: 16,
+    },
+    chatSection: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    chatHeader: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 16,
+    },
+    chatContainer: {
+        marginBottom: 16,
+    },
+    userMessageRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginBottom: 12,
+    },
+    botMessageRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        marginBottom: 12,
+    },
+    userMessageContainer: {
+        maxWidth: '80%',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderWidth: 1,
+        padding: 16,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 4,
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    botMessageContainer: {
+        maxWidth: '80%',
+        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        borderColor: 'rgba(51, 65, 85, 0.5)',
+        borderWidth: 1,
+        padding: 16,
+        borderTopLeftRadius: 4,
+        borderTopRightRadius: 16,
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    chatText: {
+        color: '#e2e8f0',
+        fontSize: 14,
+        lineHeight: 22,
+    },
+    chatInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 8,
+        height: 56,
+    },
+    chatInput: {
+        flex: 1,
+        color: 'white',
+        fontSize: 16,
+        paddingHorizontal: 12,
+    },
+    chatMicButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    chatSubmitButton: {
+        backgroundColor: '#3b82f6',
+        borderRadius: 12,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

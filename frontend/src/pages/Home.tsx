@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { Mic, Send, Loader2, MapPin, ChevronDown, Globe } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 const INDIAN_LOCATIONS: Record<string, string[]> = {
   "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Nellore", "Tirupati", "Other"],
@@ -44,6 +45,11 @@ const INDIAN_LOCATIONS: Record<string, string[]> = {
   "Other": ["Other"]
 };
 
+export interface ChatMessage {
+    role: 'user' | 'model';
+    content: string;
+}
+
 const Home = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
@@ -52,8 +58,12 @@ const Home = () => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [lawyerTips, setLawyerTips] = useState<string | null>(null);
     const [searchKey, setSearchKey] = useState<string | null>(null);
-    // const [relatedCases, setRelatedCases] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    
+    // Chat State
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [followUpText, setFollowUpText] = useState("");
+    const [isChatting, setIsChatting] = useState(false);
 
     const { register, handleSubmit, setValue, watch } = useForm({
         defaultValues: {
@@ -65,6 +75,32 @@ const Home = () => {
             audio_response: false
         }
     });
+
+    useEffect(() => {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    try {
+                        const { latitude, longitude } = position.coords;
+                        // Use Nominatim or similar reverse geocoding to find state
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                        const data = await res.json();
+                        if (data && data.address) {
+                            const state = data.address.state;
+                            if (state) {
+                                setValue('state', state); // Update form value
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error fetching location:", error);
+                    }
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                }
+            );
+        }
+    }, [setValue]);
 
     const selectedState = watch('state');
     
@@ -82,7 +118,7 @@ const Home = () => {
         setPdfUrl(null);
         setLawyerTips(null);
         setSearchKey(null);
-        // setRelatedCases([]);
+        setChatHistory([]);
         
         try {
             let res;
@@ -123,6 +159,12 @@ const Home = () => {
             if (res.data.audio_url) {
                 setAudioUrl(`http://localhost:5000${res.data.audio_url}`);
             }
+
+            // Initialize chat history context for follow-ups
+            setChatHistory([
+                { role: 'user', content: data.question || (selectedFile ? `Uploaded document: ${selectedFile.name}` : '') },
+                { role: 'model', content: res.data.response }
+            ]);
 
         } catch (error) {
             console.error(error);
@@ -166,13 +208,69 @@ const Home = () => {
         recognition.start();
     };
 
+    const handleFollowUpMicClick = () => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Your browser does not support Speech Recognition. Please try Chrome or Edge.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = watch('language') === 'Hindi' ? 'hi-IN' 
+            : watch('language') === 'Tamil' ? 'ta-IN' 
+            : watch('language') === 'Telugu' ? 'te-IN'
+            : 'en-IN';
+
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            alert("Listening... Speak now!");
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setFollowUpText((prev) => prev + (prev ? ' ' : '') + transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event.error);
+            alert("Error recognizing speech. Please try again.");
+        };
+
+        recognition.start();
+    };
+
+    const handleFollowUpSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!followUpText.trim() || isChatting) return;
+
+        const newHistory: ChatMessage[] = [...chatHistory, { role: 'user', content: followUpText }];
+        setChatHistory(newHistory);
+        setFollowUpText("");
+        setIsChatting(true);
+
+        try {
+            const res = await api.post('/api/followup', {
+                history: chatHistory, // pass previous history exactly as is
+                question: followUpText,
+                language: watch('language')
+            });
+
+            setChatHistory([...newHistory, { role: 'model', content: res.data.response }]);
+        } catch (error) {
+            console.error("Follow-up error:", error);
+            setChatHistory([...newHistory, { role: 'model', content: "Sorry, I had trouble answering that. Please try again." }]);
+        } finally {
+            setIsChatting(false);
+        }
+    };
+
     return (
         <div className="pt-24 pb-12 px-6 max-w-7xl mx-auto min-h-screen flex flex-col">
              {/* Header Section */}
             <div className="mb-10 text-center sm:text-left mt-8">
-                <p className="text-slate-400 text-lg sm:text-xl max-w-2xl font-medium leading-relaxed">
-                    Speak or type your issue. We auto-detect your language, find relevant Indian case laws, and simplify your legal options.
-                </p>
+                
             </div>
 
             {/* Main Input Card */}
@@ -362,7 +460,7 @@ const Home = () => {
             )}
 
             {response && (
-                <div className="glass-panel p-8 space-y-6 animate-fade-in-up">
+                <div className="glass-panel p-6 md:p-8 space-y-6 animate-fade-in-up">
                     <div className="flex justify-between items-start">
                         <h2 className="text-2xl font-bold text-white">Legal Guidance</h2>
                         {audioUrl && (
@@ -370,8 +468,8 @@ const Home = () => {
                         )}
                     </div>
                     
-                    <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed whitespace-pre-wrap">
-                        {response}
+                    <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed prose-headings:text-blue-400 prose-headings:mt-8 prose-headings:mb-2 prose-p:mt-0 prose-p:mb-8 prose-ul:mt-0 prose-ul:mb-8 prose-li:my-1">
+                        <ReactMarkdown>{response}</ReactMarkdown>
                     </div>
 
                     {lawyerTips && (
@@ -427,6 +525,65 @@ const Home = () => {
                                     <span className="text-sm">Download Guidance PDF</span>
                                 </div>
                             </a>
+                        </div>
+                    )}
+
+                    {/* Follow-up Interactive Chat */}
+                    {chatHistory.length > 0 && (
+                        <div className="mt-12 pt-8 border-t border-white/10">
+                            <h3 className="text-xl font-bold text-white mb-6">Continue the Conversation</h3>
+                            <div className="space-y-4 mb-6">
+                                {chatHistory.slice(2).map((msg, index) => (
+                                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[80%] rounded-2xl p-4 ${
+                                            msg.role === 'user' 
+                                                ? 'bg-blue-600/20 border border-blue-500/30 text-white rounded-tr-sm' 
+                                                : 'bg-slate-800/50 border border-slate-700/50 text-gray-200 rounded-tl-sm'
+                                        }`}>
+                                            <div className="prose prose-invert prose-sm max-w-none">
+                                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {isChatting && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-slate-800/50 border border-slate-700/50 text-gray-200 rounded-2xl rounded-tl-sm p-4 flex items-center gap-2 animate-pulse">
+                                            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                                            <span>Lawbot is typing...</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <form onSubmit={handleFollowUpSubmit} className="relative flex items-center">
+                                <input
+                                    type="text"
+                                    value={followUpText}
+                                    onChange={(e) => setFollowUpText(e.target.value)}
+                                    placeholder="Ask a follow-up question..."
+                                    className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 pr-24 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                                    disabled={isChatting}
+                                />
+                                <div className="absolute right-2 flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={handleFollowUpMicClick}
+                                        disabled={isChatting}
+                                        className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Speak your question"
+                                    >
+                                        <Mic className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!followUpText.trim() || isChatting}
+                                        className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Send className="w-5 h-5 text-white" />
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     )}
                 </div>

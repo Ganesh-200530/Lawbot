@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Scale, LogOut, User as UserIcon } from 'lucide-react';
+import { Scale, LogOut, User as UserIcon, History } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
@@ -25,6 +25,10 @@ const Navbar = () => {
                 <div className="flex items-center gap-6">
                     {user ? (
                         <>
+                            <Link to="/history" className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors bg-white/5 px-4 py-2 rounded-full hover:bg-white/10">
+                                <History className="w-4 h-4" />
+                                <span>History</span>
+                            </Link>
                             <Link to="/profile" className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors bg-white/5 px-4 py-2 rounded-full hover:bg-white/10">
                                 <UserIcon className="w-4 h-4" />
                                 <span>{user.name}</span>

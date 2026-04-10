@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff } from 'lucide-react-native/dist/esm/lucide-react-native';
+import { Mail, Lock, LogIn, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');

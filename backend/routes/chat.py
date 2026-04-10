@@ -5,9 +5,10 @@ import os
 from pypdf import PdfReader
 
 from ..services.rag_service import rag_service
-from ..services.gemini_service import generate_plain_language_explanation, analyze_document_with_gemini
+from ..services.gemini_service import generate_plain_language_explanation, analyze_document_with_gemini, generate_followup
 from ..services.tts_service import text_to_speech
 from ..services.pdf_service import generate_legal_pdf
+from ..models import db, QueryHistory
 
 chat_bp = Blueprint('chat', __name__)
 
@@ -52,20 +53,23 @@ def upload_analyze():
                 doc_text=text_content,
                 user_question=question,
                 location=location_filter,
-                language=language
+                language=language,
+                user_name=current_user.name if current_user.is_authenticated else "User"
             )
+            
+            # Reading first 500 chars for speed/demo
+            audio_file = text_to_speech(guidance[:1000], lang=lang_code)
 
-            # Generate PDF
-            full_report = f"User Question: {question}\n\nAnalysis:\n{guidance}"
-            pdf_url = generate_legal_pdf(full_report, lawyer_types)
-
-            # Generate Audio (Summary)
-            audio_file = None
-            if request.form.get('audio_response') == 'true':
-                 lang_code = 'ta' if 'tamil' in language.lower() else 'en'
-                 # Summarize guidance for audio to keep it short? Or just read it.
-                 # Reading first 500 chars for speed/demo
-                 audio_file = text_to_speech(guidance[:1000], lang=lang_code)
+            # Save to Database History
+            new_query = QueryHistory(
+                user_id=current_user.id,
+                question=question or "Document Analysis",
+                response=guidance,
+                lawyer_suggestions=lawyer_types,
+                search_key=search_key
+            )
+            db.session.add(new_query)
+            db.session.commit()
 
             return jsonify({
                 "response": guidance,
@@ -110,7 +114,8 @@ def query_lawbot():
             legal_context=context_text,
             user_question=question,
             language=language,
-            user_location=location_filter
+            user_location=location_filter,
+            user_name=current_user.name if current_user.is_authenticated else "User"
         )
         print("Gemini response received.")
 
@@ -125,6 +130,17 @@ def query_lawbot():
             lang_code = 'ta' if 'tamil' in language.lower() else 'en'
             audio_file = text_to_speech(explanation[:1000], lang=lang_code)
 
+        # 5. Save to Database History
+        new_query = QueryHistory(
+            user_id=current_user.id,
+            question=question,
+            response=explanation,
+            lawyer_suggestions=lawyer_suggestions,
+            search_key=search_key
+        )
+        db.session.add(new_query)
+        db.session.commit()
+
         return jsonify({
             "response": explanation,
             "lawyer_suggestions": lawyer_suggestions,
@@ -136,6 +152,31 @@ def query_lawbot():
 
     except Exception as e:
         print(f"SERVER ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@chat_bp.route('/history', methods=['GET'])
+@login_required
+def get_user_history():
+    queries = QueryHistory.query.filter_by(user_id=current_user.id).order_by(QueryHistory.timestamp.desc()).all()
+    return jsonify([q.to_dict() for q in queries])
+
+@chat_bp.route('/followup', methods=['POST'])
+@login_required
+def followup_chat():
+    data = request.get_json()
+    history = data.get('history', [])
+    question = data.get('question')
+    language = data.get('language', 'English')
+    
+    if not question:
+        return jsonify({"error": "Question is required"}), 400
+        
+    try:
+        answer = generate_followup(history, question, language, user_name=current_user.name if current_user.is_authenticated else "User")
+        return jsonify({"response": answer})
+    except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

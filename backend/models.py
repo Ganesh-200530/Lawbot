@@ -26,3 +26,24 @@ class User(db.Model, UserMixin):
             "state": self.state,
             "country": self.country
         }
+
+class QueryHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    question = db.Column(db.Text, nullable=False)
+    response = db.Column(db.Text, nullable=False)
+    lawyer_suggestions = db.Column(db.Text, nullable=True)
+    search_key = db.Column(db.String(200), nullable=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('queries', lazy=True))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "question": self.question,
+            "response": self.response,
+            "lawyer_suggestions": self.lawyer_suggestions,
+            "search_key": self.search_key,
+            "timestamp": self.timestamp.isoformat()
+        }
