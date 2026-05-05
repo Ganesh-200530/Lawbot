@@ -14,7 +14,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 import {
     Scale,
     User, 
@@ -104,7 +104,7 @@ export default function HomeScreen({ navigation }: any) {
     const [followUpText, setFollowUpText] = useState('');
     const [isChatting, setIsChatting] = useState(false);
 
-    const [sound, setSound] = useState<Audio.Sound>();
+    const [sound, setSound] = useState<AudioPlayer>();
     const [micTarget, setMicTarget] = useState<'question' | 'followup' | null>(null);
 
     const startRecording = async (target: 'question' | 'followup') => {
@@ -117,9 +117,12 @@ export default function HomeScreen({ navigation }: any) {
             if (url.startsWith('/')) {
                 downloadUrl = `${api.defaults.baseURL}${url}`;
             }
-            const { sound: newSound } = await Audio.Sound.createAsync({ uri: downloadUrl });
+            if (sound) {
+                sound.remove();
+            }
+            const newSound = createAudioPlayer(downloadUrl);
             setSound(newSound);
-            await newSound.playAsync();
+            newSound.play();
         } catch (error) {
             console.error("Audio error:", error);
             Alert.alert('Error', 'Could not play audio');
@@ -127,7 +130,11 @@ export default function HomeScreen({ navigation }: any) {
     }
 
     useEffect(() => {
-        return sound ? () => { sound.unloadAsync(); } : undefined;
+        return () => {
+            if (sound) {
+                sound.remove();
+            }
+        };
     }, [sound]);
 
     const pickDocument = async () => {
